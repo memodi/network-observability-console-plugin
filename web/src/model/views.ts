@@ -19,6 +19,48 @@ export interface GenericPrefs {
 
 export const defaultGenericPrefs: GenericPrefs = { added: [], removed: [] };
 
+/**
+ * Compute updated generic prefs by comparing initial and updated item selections.
+ * Only non-feature items are tracked. Returns updated prefs and whether any change occurred.
+ */
+export const computeUpdatedGenericPrefs = <T extends { id: string; isSelected: boolean }>(
+  updatedItems: T[],
+  initialItems: Map<string, boolean>,
+  currentPrefs: GenericPrefs,
+  isFeatureItem: (item: T) => boolean
+): { prefs: GenericPrefs; changed: boolean } => {
+  const newAdded = [...currentPrefs.added];
+  const newRemoved = [...currentPrefs.removed];
+  let changed = false;
+  for (const item of updatedItems) {
+    if (isFeatureItem(item)) continue;
+    const wasSelected = initialItems.get(item.id) ?? false;
+    if (item.isSelected === wasSelected) continue;
+    if (item.isSelected) {
+      const removedIdx = newRemoved.indexOf(item.id);
+      if (removedIdx >= 0) {
+        newRemoved.splice(removedIdx, 1);
+        changed = true;
+      }
+      if (!newAdded.includes(item.id)) {
+        newAdded.push(item.id);
+        changed = true;
+      }
+    } else {
+      const addedIdx = newAdded.indexOf(item.id);
+      if (addedIdx >= 0) {
+        newAdded.splice(addedIdx, 1);
+        changed = true;
+      }
+      if (!newRemoved.includes(item.id)) {
+        newRemoved.push(item.id);
+        changed = true;
+      }
+    }
+  }
+  return { prefs: { added: newAdded, removed: newRemoved }, changed };
+};
+
 export interface ViewPreset {
   id: ViewPresetId;
   label: string; // i18n key
@@ -198,13 +240,20 @@ export const reconcileDraftWithGenericPrefs = (
     addedFeaturePanels.length > 0 ||
     removedFeaturePanels.length > 0;
 
-  // Check if draft order differs from expected (reorder-only drafts)
-  // Compare against preset order (not Set order which is undefined)
-  const presetCols = preset.columns || [];
-  const presetPanels = (preset.panels as string[]) || [];
-  const colsMatch = draft.columns.length === presetCols.length && !draft.columns.some((id, i) => id !== presetCols[i]);
+  // Check if draft order differs from expected (preset + generic prefs)
+  // Build deterministic expected arrays: preset order, minus removed, plus added at end
+  const expectedColsArr = (preset.columns || []).filter(id => !genericColumnPrefs.removed.includes(id));
+  genericColumnPrefs.added.forEach(id => {
+    if (!expectedColsArr.includes(id)) expectedColsArr.push(id);
+  });
+  const expectedPanelsArr = ((preset.panels as string[]) || []).filter(id => !genericPanelPrefs.removed.includes(id));
+  genericPanelPrefs.added.forEach(id => {
+    if (!expectedPanelsArr.includes(id)) expectedPanelsArr.push(id);
+  });
+  const colsMatch =
+    draft.columns.length === expectedColsArr.length && !draft.columns.some((id, i) => id !== expectedColsArr[i]);
   const panelsMatch =
-    draft.panels.length === presetPanels.length && !draft.panels.some((id, i) => id !== presetPanels[i]);
+    draft.panels.length === expectedPanelsArr.length && !draft.panels.some((id, i) => id !== expectedPanelsArr[i]);
   const hasOrderChange = !colsMatch || !panelsMatch;
 
   // Clear draft if: no feature changes AND no order change

@@ -114,7 +114,7 @@ describe('getPanelFeature', () => {
 
   it('returns dnsTracking for DNS panels', () => {
     expect(getPanelFeature('top_avg_dns_latency')).toBe('dnsTracking');
-    expect(getPanelFeature('name_dns_latency_flows')).toBe('dnsTracking');
+    expect(getPanelFeature('dns_name_flows')).toBe('dnsTracking');
   });
 
   it('returns flowRTT for RTT panels', () => {

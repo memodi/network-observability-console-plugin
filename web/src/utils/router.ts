@@ -1,4 +1,3 @@
-import { ViewPresetId } from 'src/model/views';
 import {
   createFilterValue,
   DisabledFilters,
@@ -9,6 +8,7 @@ import {
   fromFilterKey
 } from '../model/filters';
 import { DataSource, Match, MetricType, PacketLoss, RecordType, StatFunction } from '../model/flow-query';
+import { ViewPresetId } from '../model/views';
 import { TimeRange } from './datetime';
 import { findFilter } from './filter-definitions';
 import {

@@ -16,7 +16,13 @@ import * as _ from 'lodash';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Config } from '../../model/config';
-import { defaultGenericPrefs, GenericPrefs, getViewPreset, ViewPresetId } from '../../model/views';
+import {
+  computeUpdatedGenericPrefs,
+  defaultGenericPrefs,
+  GenericPrefs,
+  getViewPreset,
+  ViewPresetId
+} from '../../model/views';
 import { Column, ColumnSizeMap, getDefaultColumns, getFullColumnName } from '../../utils/columns';
 import './columns-modal.css';
 import Modal, { ensureRootElement } from './modal';
@@ -191,37 +197,14 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({
 
     // Update generic prefs only for columns the user actually toggled
     const initialMap = new Map(columns.map(c => [c.id, c.isSelected]));
-    const newAdded = [...genericPrefs.added];
-    const newRemoved = [...genericPrefs.removed];
-    let prefsChanged = false;
-    for (const col of updatedColumns) {
-      if (col.feature) continue; // skip feature columns
-      const wasSelected = initialMap.get(col.id) ?? false;
-      if (col.isSelected === wasSelected) continue; // no change
-      if (col.isSelected) {
-        const removedIdx = newRemoved.indexOf(col.id);
-        if (removedIdx >= 0) {
-          newRemoved.splice(removedIdx, 1);
-          prefsChanged = true;
-        }
-        if (!newAdded.includes(col.id)) {
-          newAdded.push(col.id);
-          prefsChanged = true;
-        }
-      } else {
-        const addedIdx = newAdded.indexOf(col.id);
-        if (addedIdx >= 0) {
-          newAdded.splice(addedIdx, 1);
-          prefsChanged = true;
-        }
-        if (!newRemoved.includes(col.id)) {
-          newRemoved.push(col.id);
-          prefsChanged = true;
-        }
-      }
-    }
-    if (prefsChanged) {
-      setGenericPrefs({ added: newAdded, removed: newRemoved });
+    const { prefs, changed } = computeUpdatedGenericPrefs(
+      updatedColumns,
+      initialMap,
+      genericPrefs,
+      col => !!col.feature
+    );
+    if (changed) {
+      setGenericPrefs(prefs);
     }
 
     setColumns(updatedColumns);

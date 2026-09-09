@@ -28,7 +28,7 @@ import {
   reconcileDraftWithGenericPrefs,
   ViewPresetId
 } from '../model/views';
-import { Column, ColumnSizeMap } from '../utils/columns';
+import { Column, ColumnSizeMap, getDefaultColumns } from '../utils/columns';
 import { useConfigValidation } from '../utils/config-validation-hook';
 import { ContextSingleton } from '../utils/context';
 import { TimeRange } from '../utils/datetime';
@@ -61,7 +61,7 @@ import {
 } from '../utils/local-storage-hook';
 import { useConfigCapabilities } from '../utils/netflow-capabilities-hook';
 import { InitState, useDataFetching } from '../utils/netflow-fetching-hook';
-import { OverviewPanel } from '../utils/overview-panels';
+import { getAvailablePanels, OverviewPanel } from '../utils/overview-panels';
 import {
   defaultMetricFunction,
   defaultMetricScope,
@@ -283,8 +283,10 @@ export const NetflowTraffic: React.FC<NetflowTrafficProps> = ({
   const searchRef = React.useRef<SearchHandle>(null);
   const guidedTourRef = React.useRef<GuidedTourHandle>(null);
   const initState = React.useRef<InitState>([]);
-  // Stores the user's original metric type before a view preset overrides it
-  const savedMetricType = React.useRef<MetricType>(topologyMetricType);
+  // Stores the user's "All Traffic" metric type before a view preset overrides it.
+  // Initialize to defaultMetricType (not topologyMetricType) because on a fresh load
+  // from a feature-view session, topologyMetricType may hold the feature's metric.
+  const savedMetricType = React.useRef<MetricType>(activeView === 'all' ? topologyMetricType : defaultMetricType);
 
   // Data-fetching hook
   const {
@@ -370,6 +372,10 @@ export const NetflowTraffic: React.FC<NetflowTrafficProps> = ({
       }
       // Feature view: build ordered column list from selection
       const selectedIds = newColumns.filter(c => c.isSelected).map(c => c.id as string);
+      const currentIds = caps.selectedColumns.map(c => c.id as string);
+      if (selectedIds.length === currentIds.length && selectedIds.every((id, i) => id === currentIds[i])) {
+        return;
+      }
       setDraftView(prev => ({
         baseViewId: activeView,
         columns: selectedIds,
@@ -377,7 +383,7 @@ export const NetflowTraffic: React.FC<NetflowTrafficProps> = ({
         topologyMetricType: prev?.topologyMetricType ?? topologyMetricType
       }));
     },
-    [setColumns, activeView, caps.selectedPanels, topologyMetricType]
+    [setColumns, activeView, caps.selectedColumns, caps.selectedPanels, topologyMetricType]
   );
 
   const setPanelsWithDraft = React.useCallback(
@@ -388,6 +394,10 @@ export const NetflowTraffic: React.FC<NetflowTrafficProps> = ({
       }
       // Feature view: build ordered panel list from modal selection
       const selectedIds = newPanels.filter(p => p.isSelected).map(p => p.id as string);
+      const currentIds = caps.selectedPanels.map(p => p.id as string);
+      if (selectedIds.length === currentIds.length && selectedIds.every((id, i) => id === currentIds[i])) {
+        return;
+      }
       setDraftView(prev => ({
         baseViewId: activeView,
         columns: prev?.columns ?? caps.selectedColumns.map(c => c.id as string),
@@ -395,7 +405,7 @@ export const NetflowTraffic: React.FC<NetflowTrafficProps> = ({
         topologyMetricType: prev?.topologyMetricType ?? topologyMetricType
       }));
     },
-    [setPanels, activeView, caps.selectedColumns, topologyMetricType]
+    [setPanels, activeView, caps.selectedColumns, caps.selectedPanels, topologyMetricType]
   );
 
   // Sync draft with generic prefs changes, or auto-clear if draft matches preset
@@ -429,6 +439,36 @@ export const NetflowTraffic: React.FC<NetflowTrafficProps> = ({
     }
     setDraftView(null);
   }, [draftView, updateTopologyMetricType]);
+
+  const isAllTrafficCustomized = React.useMemo(() => {
+    if (activeView !== 'all') return false;
+    const defaultCols = getDefaultColumns(config.columns, config.fields);
+    const defaultPnls = getAvailablePanels(config.panels);
+    const colsMatch =
+      columns.length === defaultCols.length &&
+      columns.every((c, i) => c.id === defaultCols[i].id && c.isSelected === defaultCols[i].isSelected);
+    const panelsMatch =
+      panels.length === defaultPnls.length &&
+      panels.every((p, i) => p.id === defaultPnls[i].id && p.isSelected === defaultPnls[i].isSelected);
+    return !colsMatch || !panelsMatch;
+  }, [activeView, columns, panels, config.columns, config.fields, config.panels]);
+
+  const onRestoreDefaults = React.useCallback(() => {
+    setColumns(getDefaultColumns(config.columns, config.fields));
+    setPanels(getAvailablePanels(config.panels));
+    setColumnSizes({});
+    setGenericColumnPrefs(defaultGenericPrefs);
+    setGenericPanelPrefs(defaultGenericPrefs);
+  }, [
+    config.columns,
+    config.fields,
+    config.panels,
+    setColumns,
+    setPanels,
+    setColumnSizes,
+    setGenericColumnPrefs,
+    setGenericPanelPrefs
+  ]);
 
   const resetDefaultFilters = React.useCallback(() => {
     setDraftView(null);
@@ -556,6 +596,8 @@ export const NetflowTraffic: React.FC<NetflowTrafficProps> = ({
                   setActiveView={applyView}
                   draftView={draftView}
                   onDiscardDraft={onDiscardDraft}
+                  isAllTrafficCustomized={isAllTrafficCustomized}
+                  onRestoreDefaults={onRestoreDefaults}
                 />
               </FlexItem>
             </Flex>
