@@ -17,7 +17,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Feature } from '../../model/config';
 import { RecordType } from '../../model/flow-query';
-import { defaultGenericPrefs, GenericPrefs, getViewPreset, ViewPresetId } from '../../model/views';
+import { computeUpdatedGenericPrefs, defaultGenericPrefs, GenericPrefs, getViewPreset, ViewPresetId } from '../../model/views';
 import { getAvailablePanels, getOverviewPanelInfo, getPanelFeature, OverviewPanel } from '../../utils/overview-panels';
 import Modal, { ensureRootElement } from './modal';
 import './overview-panels-modal.css';
@@ -207,37 +207,14 @@ export const OverviewPanelsModal: React.FC<OverviewPanelsModalProps> = ({
     }
     // Update generic prefs only for panels the user actually toggled
     const initialMap = new Map(panels.map(p => [p.id, p.isSelected]));
-    const newAdded = [...genericPrefs.added];
-    const newRemoved = [...genericPrefs.removed];
-    let prefsChanged = false;
-    for (const panel of updatedPanels) {
-      if (getPanelFeature(panel.id)) continue; // skip feature panels
-      const wasSelected = initialMap.get(panel.id) ?? false;
-      if (panel.isSelected === wasSelected) continue; // no change
-      if (panel.isSelected) {
-        const removedIdx = newRemoved.indexOf(panel.id);
-        if (removedIdx >= 0) {
-          newRemoved.splice(removedIdx, 1);
-          prefsChanged = true;
-        }
-        if (!newAdded.includes(panel.id)) {
-          newAdded.push(panel.id);
-          prefsChanged = true;
-        }
-      } else {
-        const addedIdx = newAdded.indexOf(panel.id);
-        if (addedIdx >= 0) {
-          newAdded.splice(addedIdx, 1);
-          prefsChanged = true;
-        }
-        if (!newRemoved.includes(panel.id)) {
-          newRemoved.push(panel.id);
-          prefsChanged = true;
-        }
-      }
-    }
-    if (prefsChanged) {
-      setGenericPrefs({ added: newAdded, removed: newRemoved });
+    const { prefs, changed } = computeUpdatedGenericPrefs(
+      updatedPanels.map(p => ({ id: p.id, isSelected: p.isSelected })),
+      initialMap,
+      genericPrefs,
+      p => !!getPanelFeature(p.id)
+    );
+    if (changed) {
+      setGenericPrefs(prefs);
     }
 
     setPanels(updatedPanels);

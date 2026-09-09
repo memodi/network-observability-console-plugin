@@ -1,4 +1,4 @@
-import { ViewPresetId } from 'src/model/views';
+import { ViewPresetId } from '../model/views';
 import {
   createFilterValue,
   DisabledFilters,

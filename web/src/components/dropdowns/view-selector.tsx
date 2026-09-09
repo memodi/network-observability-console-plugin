@@ -7,16 +7,25 @@ import { useOutsideClickEvent } from '../../utils/outside-hook';
 
 // i18n extraction hints for dynamic view labels
 // t('All Traffic') t('Packet Drops') t('DNS Latency') t('Flow RTT') t('TLS Tracking') t('UDN Mapping') t('Network Events') t('Packet Translation')
-// t('Custom') t('Discard changes')
+// t('Custom') t('Discard changes') t('Restore defaults')
 
 export interface ViewSelectorProps {
   activeView: ViewPresetId;
   setActiveView: (view: ViewPresetId) => void;
   draftView: DraftView | null;
   onDiscardDraft: () => void;
+  isAllTrafficCustomized?: boolean;
+  onRestoreDefaults?: () => void;
 }
 
-export const ViewSelector: React.FC<ViewSelectorProps> = ({ activeView, setActiveView, draftView, onDiscardDraft }) => {
+export const ViewSelector: React.FC<ViewSelectorProps> = ({
+  activeView,
+  setActiveView,
+  draftView,
+  onDiscardDraft,
+  isAllTrafficCustomized,
+  onRestoreDefaults
+}) => {
   const { caps } = React.useContext(NetflowContext);
   const availableViews = caps.availableViews;
   const { t } = useTranslation('plugin__netobserv-plugin');
@@ -32,6 +41,11 @@ export const ViewSelector: React.FC<ViewSelectorProps> = ({ activeView, setActiv
     }
     if (value === '__discard_draft__') {
       onDiscardDraft();
+      setOpen(false);
+      return;
+    }
+    if (value === '__restore_defaults__') {
+      onRestoreDefaults?.();
       setOpen(false);
       return;
     }
@@ -58,7 +72,9 @@ export const ViewSelector: React.FC<ViewSelectorProps> = ({ activeView, setActiv
             isExpanded={isOpen}
             data-test="view-selector-dropdown"
           >
-            {isOnDraftView ? `${t('Custom')} ${t('View')}: ${t(activeLabel)}` : `${t('View')}: ${t(activeLabel)}`}
+            {isOnDraftView || (isAllTrafficCustomized && activeView === 'all')
+              ? `${t('Custom')} ${t('View')}: ${t(activeLabel)}`
+              : `${t('View')}: ${t(activeLabel)}`}
           </MenuToggle>
         )}
       >
@@ -82,6 +98,17 @@ export const ViewSelector: React.FC<ViewSelectorProps> = ({ activeView, setActiv
             data-test="view-option-discard-draft"
           >
             {t('Discard changes')}
+          </SelectOption>
+        )}
+        {isAllTrafficCustomized && activeView === 'all' && <Divider key="restore-divider" />}
+        {isAllTrafficCustomized && activeView === 'all' && (
+          <SelectOption
+            key="restore-defaults"
+            value="__restore_defaults__"
+            id="view-option-restore-defaults"
+            data-test="view-option-restore-defaults"
+          >
+            {t('Restore defaults')}
           </SelectOption>
         )}
       </Select>

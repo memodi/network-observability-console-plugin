@@ -190,6 +190,7 @@
   "Packet Translation": "Packet Translation",
   "Custom": "Custom",
   "Discard changes": "Discard changes",
+  "Restore defaults": "Restore defaults",
   "View": "View",
   "Cluster metrics": "Cluster metrics",
   "Bandwidth": "Bandwidth",
