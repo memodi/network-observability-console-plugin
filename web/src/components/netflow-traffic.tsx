@@ -830,7 +830,14 @@ export const NetflowTraffic: React.FC<NetflowTrafficProps> = ({
             setGenericColumnPrefs={setGenericColumnPrefs}
             genericPanelPrefs={genericPanelPrefs}
             setGenericPanelPrefs={setGenericPanelPrefs}
-            onColumnsReset={() => setDraftView(null)}
+            onColumnsReset={() => {
+              // Re-set full unfiltered defaults so isAllTrafficCustomized comparison works
+              // (the modal's reset only sets available/filtered columns)
+              if (activeView === 'all') {
+                setColumns(getDefaultColumns(config.columns, config.fields));
+              }
+              setDraftView(null);
+            }}
           />
         )}
         <GuidedTourPopover id="netobserv" ref={guidedTourRef} isDark={isDarkTheme} />

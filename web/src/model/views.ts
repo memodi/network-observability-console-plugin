@@ -265,10 +265,27 @@ export const reconcileDraftWithGenericPrefs = (
   const removedColSet = new Set(removedFeatureCols);
   const updatedColSet = new Set([...expectedCols, ...addedFeatureCols]);
   removedColSet.forEach(id => updatedColSet.delete(id));
-  // Keep draft order for existing columns, append any new ones from generic prefs
+  // Keep draft order for existing columns
   const updatedCols = draft.columns.filter(id => updatedColSet.has(id));
+  // Insert new columns in their availableColumns order relative to existing ones
+  const availableOrder = availableColumns.map(c => c.id as string);
   updatedColSet.forEach(id => {
-    if (!updatedCols.includes(id)) updatedCols.push(id);
+    if (!updatedCols.includes(id)) {
+      // Find insertion point: place after the last column that precedes this one in availableColumns order
+      const idxInAvailable = availableOrder.indexOf(id);
+      let insertAt = updatedCols.length; // default: append at end
+      for (let i = updatedCols.length - 1; i >= 0; i--) {
+        const existingIdx = availableOrder.indexOf(updatedCols[i]);
+        if (existingIdx !== -1 && existingIdx < idxInAvailable) {
+          insertAt = i + 1;
+          break;
+        }
+        if (i === 0) {
+          insertAt = 0;
+        }
+      }
+      updatedCols.splice(insertAt, 0, id);
+    }
   });
 
   const removedPanelSet = new Set(removedFeaturePanels);
