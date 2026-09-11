@@ -537,14 +537,18 @@ describe('(OCP-XXXXX) Views selector tests', { tags: ['Network_Observability'] }
         cy.get(viewSelectors.dnsLatency).click()
         cy.get(viewSelectors.dropdown).should('contain.text', 'DNS Latency')
 
-        // Reorder columns to create draft
-        cy.openColumnsModal()
-        cy.byTestID('table-column-management').within(() => {
-            // Drag first column to different position (creates reorder draft)
-            cy.get('[id="data-0"]').trigger('mousedown')
-            cy.get('[id="data-3"]').trigger('mouseover').trigger('mouseup')
-        })
-        cy.byTestID('columns-save-button').click()
+        // Reorder columns via native HTML drag on table headers to create draft
+        // Table <th> elements have draggable="true" and use data-index for reorder logic
+        cy.byTestID('table-composable').within(() => {
+          const dataTransfer = new DataTransfer();
+          cy.get('th.netobserv-header.column[data-index="0"]')
+            .trigger('dragstart', { dataTransfer });
+          cy.get('th.netobserv-header.column[data-index="1"]')
+            .trigger('dragover', { dataTransfer })
+            .trigger('drop', { dataTransfer });
+          cy.get('th.netobserv-header.column[data-index="0"]')
+            .trigger('dragend', { dataTransfer });
+        });
 
         // Verify "Custom" label present (draft exists)
         cy.get(viewSelectors.dropdown).should('contain.text', 'Custom')
